@@ -1,10 +1,12 @@
+from typing import cast
+
 import bpy
 
-from .data_funcs import prepare_data
-from .airtable_funcs import airtable_create_record, airtable_upload_attachment
+from ..infra.airtable import AirtableInterface, AirtableRecord, AirtableFields
 
+from .data_funcs import prepare_data_record
 from ..registry import register_class
-from .. import PACKAGE
+from ..preferences.prefs import get_pref_value
 
 @register_class
 class Slicer_AirtableOperator(bpy.types.Operator):
@@ -12,22 +14,37 @@ class Slicer_AirtableOperator(bpy.types.Operator):
     bl_label = "Send data to Airtable"
 
     def execute(self, context) -> set[str]: #type: ignore
-        prefs = bpy.context.preferences.addons[PACKAGE].preferences #type: ignore
-        print_gcode, metadata = prepare_data()
+        print_gcode, record = prepare_data_record()
 
-        res = airtable_create_record(
-            prefs.airtable_base,
-            prefs.orders_table,
-            metadata
-        )
+        airtable = AirtableInterface(get_pref_value('airtable_pat'))
 
-        record_id = res['id']
+        base_id=get_pref_value('airtable_base')
+        table_name=get_pref_value('orders_table')
 
-        res2 = airtable_upload_attachment(
-            prefs.airtable_base,
-            record_id,
-            'GCODE',
-            print_gcode
+        if record.get('id'):
+            match = airtable.fetch(base_id, table_name, filterByFormula=f"ID = {record['id']}", fields=['ID', 'Record ID'])
+
+            if not match: return {'CANCELED'}
+
+            record['id'] = list(match)[0]
+            res = airtable.update_records(
+                base_id, table_name,
+                records=[cast(AirtableRecord, record)],
+            )
+            record_id = record['id']
+        else:
+            res = airtable.create_record(
+                base_id, table_name,
+                fields=record['fields']
+            )
+            record_id = res['id']
+        
+
+        _ = airtable.upload_attachment(
+            base_id=get_pref_value('airtable_base'),
+            record_id=record_id,
+            field_id='GCODE',
+            filepath=print_gcode
         )  
 
         return {'FINISHED'}

@@ -1,59 +1,52 @@
 from typing import Any
-
 import bpy
 import re
 
-from .blender_funcs import coll_from_selection, selected_top_level_objects
-
+from ..infra.blender_bridge import coll_from_selection, selected_top_level_objects
 from .. import TYPES_NAME, US_TYPE_NAME
 
-def prepare_data() -> tuple[str, dict[str, Any]]:
+def prepare_data_record() -> tuple[str, dict[str, Any]]:
     coll = coll_from_selection()
-    pg = getattr(coll, TYPES_NAME)
-    pg_us = getattr(coll, US_TYPE_NAME)
+    pg = getattr(coll, TYPES_NAME, None)
+    pg_us = getattr(coll, US_TYPE_NAME, None)
 
-    # props = get_inherited_slicing_props(coll, US_TYPE_NAME)
-    customer = getattr(pg, 'customer_name')
-    # batch = getattr(pg, 'batch_name')
+    ao = bpy.context.active_object
+    if ao is None or pg is None or pg_us is None:
+        return "", {}
 
-    #name
-    name = getattr(bpy.context.active_object, 'name').split('.')[0]
+    def parse_weight(s: str) -> float:
+        try:
+            return round(sum(float(p.strip() or 0) for p in s.split(",")), 2)
+        except Exception:
+            return 0.0
 
-    #weight
-    weight = round(
-    sum(
-        float(p) if p.strip() else 0.0
-        for p in getattr(pg_us, 'print_weight', '').split(',')
-    ),
-    2
-)
+    def time_to_hours(s: str) -> float:
+        if not s:
+            return 0.0
+        matches = re.findall(r"(\d+)([hms])", s)
+        factors = {"h": 1.0, "m": 1.0 / 60, "s": 1.0 / 3600}
+        return round(sum(int(v) * factors.get(u, 0) for v, u in matches), 2)
 
-    #time
-    time = getattr(pg_us, 'print_time')
-    if time:
-        matches = re.findall(r'(\d+)([hms])', time)
-        factors = {'h': 1, 'm': 1/60, 's': 1/3600}
-        total_hours = round(sum(int(value) * factors[unit] for value, unit in matches), 2)
-    else:
-        total_hours = 0
-
-    #count
-    count = len(selected_top_level_objects())
-
-    #notes-path
-    path = bpy.data.filepath[bpy.data.filepath.find("MOS-Project-Files"):]
-    if path == 'd': path = ''
+    fp = bpy.data.filepath or ""
+    i = fp.find("MOS-Project-Files")
+    path = fp[i:] if i != -1 else ""
 
     metadata = {
-        'Customer': customer,
-        'Part ID / Name': name,
-        'Weight per print': weight,
-        'Time per print': total_hours,
-        'Parts per print': count,
-        'Notes': path,
+        "Customer": getattr(pg, "customer_name", ""),
+        "Part ID / Name": ao.name.split(".")[0],
+        "Weight per print": parse_weight(getattr(pg_us, "print_weight", "")),
+        "Time per print": time_to_hours(getattr(pg_us, "print_time", "")),
+        "Parts per print": len(selected_top_level_objects()),
+        "Notes": path,
+        "GCODE": [],
     }
 
-    metadata = {k: v for k, v in metadata.items() if v}
-    filepath = pg_us.print_gcode
+    fields: dict[str, Any] = {k: v for k, v in metadata.items() if v is not None and v != ""}
 
-    return filepath, metadata
+    record: dict[str, Any] = {'fields': fields}
+
+    if id := getattr(pg, "order_record_id", ""): record['id'] = id
+
+    filepath = getattr(pg_us, "print_gcode", "")
+
+    return filepath, record

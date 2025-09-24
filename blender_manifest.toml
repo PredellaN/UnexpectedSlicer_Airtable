@@ -15,3 +15,22 @@ blender_version_min = "4.2.0"
 license = [
   "SPDX:GPL-2.0-or-later",
 ]
+platforms = [
+    "windows-x64",
+    "macos-arm64",
+    "linux-x64"
+]
+wheels = [
+    "./wheels/requests-2.32.3-py3-none-any.whl",
+    "./wheels/pyairtable-3.2.0-py2.py3-none-any.whl"
+]
+copyright = []
+
+[permissions]
+
+[build]
+paths_exclude_pattern = [
+  "__pycache__/",
+  "experimental/",
+  "cache/",
+]
