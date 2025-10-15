@@ -24,6 +24,9 @@ class SlicerPanel(bpy.types.Panel):
         row= layout.row()
         row.operator('collection.slicer_to_airtable')
 
+        row= layout.row()
+        row.operator('collection.airtable_stl_to_blender')
+
         row = layout.row()
         row.prop(pg, 'customer_name', text="Customer Name")
         row = layout.row()
