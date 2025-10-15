@@ -31,12 +31,15 @@ def prepare_data_record() -> tuple[str, dict[str, Any]]:
     i = fp.find("MOS-Project-Files")
     path = fp[i:] if i != -1 else ""
 
+    printer = getattr(pg_us, 'printer_config_file')
+
     metadata = {
         "Customer": getattr(pg, "customer_name", ""),
         "Part ID / Name": ao.name.split(".")[0],
         "Weight per print": parse_weight(getattr(pg_us, "print_weight", "")),
         "Time per print": time_to_hours(getattr(pg_us, "print_time", "")),
         "Parts per print": len(selected_top_level_objects()),
+        "Printer Profile": printer.split(':')[1] if printer else '',
         "Notes": path,
         "GCODE": [],
     }
