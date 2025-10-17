@@ -39,7 +39,7 @@ def prepare_data_record() -> tuple[str, dict[str, Any]]:
         "Weight per print": parse_weight(getattr(pg_us, "print_weight", "")),
         "Time per print": time_to_hours(getattr(pg_us, "print_time", "")),
         "Parts per print": len(selected_top_level_objects()),
-        "Printer Profile": printer.split(':')[1] if printer else '',
+        "Printer Profile": pg_us['preview_data']['config']['printer_settings_id'],
         "Notes": path,
         "GCODE": [],
     }
